@@ -21,7 +21,8 @@
 *
 */
 
-//#define LOG_NDEBUG 0
+#define LOG_NDEBUG 0
+#define LOG_PARAMETERS
 
 #define LOG_TAG "CameraWrapper"
 #include <cutils/log.h>
@@ -39,7 +40,8 @@ static camera_module_t *gVendorModule = 0;
 static char **fixed_set_params = NULL;
 
 static int camera_device_open(const hw_module_t *module, const char *name,
-        hw_device_t **device);
+                hw_device_t **device);
+static int camera_device_close(hw_device_t *device);
 static int camera_get_number_of_cameras(void);
 static int camera_get_camera_info(int camera_id, struct camera_info *info);
 
@@ -49,7 +51,7 @@ static struct hw_module_methods_t camera_module_methods = {
 
 camera_module_t HAL_MODULE_INFO_SYM = {
     .common = {
-         tag: HARDWARE_MODULE_TAG,
+         .tag = HARDWARE_MODULE_TAG,
          .module_api_version = CAMERA_MODULE_API_VERSION_1_0,
          .hal_api_version = HARDWARE_HAL_API_VERSION,
          .id = CAMERA_HARDWARE_MODULE_ID,
@@ -89,19 +91,21 @@ static int check_vendor_module()
         return 0;
 
     rv = hw_get_module_by_class("camera", "vendor",
-            (const hw_module_t**)&gVendorModule);
+            (const hw_module_t **)&gVendorModule);
+
     if (rv)
         ALOGE("failed to open vendor camera module");
     return rv;
 }
 
-static char *camera_fixup_getparams(int id, const char *settings)
+static char *camera_fixup_getparams(int __attribute__((unused)) id,
+    const char *settings)
 {
     android::CameraParameters params;
     params.unflatten(android::String8(settings));
 
-#if !LOG_NDEBUG
-    ALOGV("%s: original parameters:", __FUNCTION__);
+#ifdef LOG_PARAMETERS
+    ALOGV("%s: Original parameters:", __FUNCTION__);
     params.dump();
 #endif
 
@@ -116,26 +120,13 @@ static char *camera_fixup_getparams(int id, const char *settings)
         params.set("max-sharpness", params.get("sharpness-max"));
     }
 
-#if !LOG_NDEBUG
+    android::String8 strParams = params.flatten();
+    char *ret = strdup(strParams.string());
+
+#ifdef LOG_PARAMETERS
     ALOGV("%s: fixed parameters:", __FUNCTION__);
     params.dump();
 #endif
-
-    //Hide nv12-venus from Android.
-    if (strcmp (params.getPreviewFormat(), "nv12-venus") == 0)
-        params.set("preview-format", "yuv420sp");
-
-    int minfps, maxfps;
-    params.getPreviewFpsRange(&minfps, &maxfps);
-    if (minfps >= 60000)
-    {
-	params.set("preview-frame-rate-values", "15,24,30,60");
-	params.set("fast-fps-mode", "1");
-	params.set("preview-frame-rate", "60");
-    }
-
-    android::String8 strParams = params.flatten();
-    char *ret = strdup(strParams.string());
 
     return ret;
 }
@@ -145,7 +136,7 @@ static char *camera_fixup_setparams(int id, const char *settings)
     android::CameraParameters params;
     params.unflatten(android::String8(settings));
 
-#if !LOG_NDEBUG
+#ifdef LOG_PARAMETERS
     ALOGV("%s: original parameters:", __FUNCTION__);
     params.dump();
 #endif
@@ -161,25 +152,18 @@ static char *camera_fixup_setparams(int id, const char *settings)
         params.set("sharpness-max", params.get("max-sharpness"));
     }
 
-#if !LOG_NDEBUG
-    ALOGV("%s: fixed parameters:", __FUNCTION__);
-    params.dump();
-#endif
-
-    int minfps, maxfps;
-    params.getPreviewFpsRange(&minfps, &maxfps);
-    if (minfps >= 60000)
-    {
-    	params.set("preview-frame-rate-values", "15,24,30,60");
-	params.set("fast-fps-mode", "1");
-	params.set("preview-frame-rate", "60");
-    }
 
     android::String8 strParams = params.flatten();
+
     if (fixed_set_params[id])
         free(fixed_set_params[id]);
     fixed_set_params[id] = strdup(strParams.string());
     char *ret = fixed_set_params[id];
+
+#ifdef LOG_PARAMETERS
+    ALOGV("%s: fixed parameters:", __FUNCTION__);
+    params.dump();
+#endif
 
     return ret;
 }
@@ -187,7 +171,8 @@ static char *camera_fixup_setparams(int id, const char *settings)
 /*******************************************************************
  * implementation of camera_device_ops functions
  *******************************************************************/
-
+static char *camera_get_parameters(struct camera_device *device);
+static int camera_set_parameters(struct camera_device *device, const char *params);
 static int camera_set_preview_window(struct camera_device *device,
         struct preview_stream_ops *window)
 {
@@ -213,8 +198,7 @@ static void camera_set_callbacks(struct camera_device *device,
     if (!device)
         return;
 
-    VENDOR_CALL(device, set_callbacks, notify_cb, data_cb, data_cb_timestamp,
-            get_memory, user);
+    VENDOR_CALL(device, set_callbacks, notify_cb, data_cb, data_cb_timestamp, get_memory, user);
 }
 
 static void camera_enable_msg_type(struct camera_device *device,
@@ -351,7 +335,6 @@ static int camera_auto_focus(struct camera_device *device)
     if (!device)
         return -EINVAL;
 
-
     return VENDOR_CALL(device, auto_focus);
 }
 
@@ -388,8 +371,7 @@ static int camera_cancel_picture(struct camera_device *device)
     return VENDOR_CALL(device, cancel_picture);
 }
 
-static int camera_set_parameters(struct camera_device *device,
-        const char *params)
+static int camera_set_parameters(struct camera_device *device, const char *params)
 {
     ALOGV("%s->%08X->%08X", __FUNCTION__, (uintptr_t)device,
             (uintptr_t)(((wrapper_camera_device_t*)device)->vendor));
@@ -519,7 +501,7 @@ static int camera_device_open(const hw_module_t *module, const char *name,
 
     android::Mutex::Autolock lock(gCameraWrapperLock);
 
-    ALOGV("%s", __FUNCTION__);
+    ALOGV("camera_device open");
 
     if (name != NULL) {
         if (check_vendor_module())
