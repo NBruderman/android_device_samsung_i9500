@@ -445,6 +445,9 @@ on post-fs
 	chown bluetooth net_bt_stack /sys/class/rfkill/rfkill0/type
 	chmod 0660 /sys/class/rfkill/rfkill0/state
 
+# Permissions for Synapse
+	chmod 0777 /sbin/synapse.sh
+
 # Create EFS imei folder
 	mkdir /efs/imei 0775 radio system
 	
@@ -676,6 +679,12 @@ service mobicore /system/bin/mcDriverDaemon \
 service battery_charger /sbin/healthd -c
 	class charger
 	critical
+
+# Synapse Kernel Control
+service synapse /sbin/synapse.sh
+    class core
+    user root
+    oneshot
 
 on property:sys.boot_completed=1
 	write /sys/block/mmcblk0/queue/scheduler row
