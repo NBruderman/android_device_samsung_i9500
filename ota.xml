@@ -25,7 +25,7 @@
   <FileSize type="integer">288358400</FileSize>
   <!-- Developer or Team name. You can put anything here, even a couple of names -->
   <!-- OPTIONAL: Enter <Developer nil="true" /> to hide this -->
-  <Developer>GearCM</Developer>
+  <Developer>GearCM, Alberto96</Developer>
   <!-- Your ROM or Developer Website. Can be a personal site or your XDA/forum thread -->
   <!-- OPTIONAL: Enter <Website nil="true" /> to hide this -->
   <WebsiteURL>http://forum.xda-developers.com/galaxy-s4/i9500-orig-develop/gearcm-optimized-cyanogenmod-12-1-t3091958</WebsiteURL>
@@ -35,5 +35,16 @@
   <!-- Put the changelog here... Use Markdown to format it -->
   <!-- Again, surround special characters with the CDATA tags or your XML will NOT parse -->
   <Changelog>### Changelog 20150707
-* Coming Soon</Changelog>
+* Updated CM Sources
+* Fixed horrible and distorted speaker sound
+* Added OTA Updates support
+* SYNAPSE: added CPU A7/A15 Control
+* SYNAPSE: added Wolfson Sound Control
+* SYNAPSE: added AMOLED Screen Control
+* KERNEL: updated IKCS driver to Exynos5420 state
+* KERNEL: added A7/A15 CPU Overclock/Underclock
+* KERNEL: added AMOLED Screen Control driver
+* KERNEL: added Wolfson Sound Control driver
+* KERNEL: updated UDP driver
+</Changelog>
 </ROM>
